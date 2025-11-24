@@ -1,10 +1,14 @@
-<%- include('partials/header', { pageTitle: 'Error', activePage }) %>
+<%- include('partials/header', { pageTitle: 'Error · Campus Radio', activePage: '' }) %>
 
 <section class="card hero" style="grid-column: 1 / -1;">
   <div>
     <p class="pill">Server error</p>
     <h2><%= title %></h2>
-    <p class="muted"><%= message %></p>
+
+    <p class="muted" style="white-space: pre-wrap; font-family: monospace;">
+      <%= message %>
+    </p>
+
     <div class="actions" style="margin-top: 10px;">
       <a class="btn" href="/">Back home</a>
     </div>
