@@ -1,0 +1,14 @@
+<%- include('partials/header', { pageTitle: 'Error', activePage }) %>
+
+<section class="card hero" style="grid-column: 1 / -1;">
+  <div>
+    <p class="pill">Server error</p>
+    <h2><%= title %></h2>
+    <p class="muted"><%= message %></p>
+    <div class="actions" style="margin-top: 10px;">
+      <a class="btn" href="/">Back home</a>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

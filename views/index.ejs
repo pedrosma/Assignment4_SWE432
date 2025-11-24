@@ -1,0 +1,58 @@
+<%- include('partials/header', { pageTitle: `${title} · Campus Radio`, activePage }) %>
+
+<section class="card hero">
+  <div>
+    <p class="pill">N-tier ready · Sessions + MongoDB</p>
+    <h2>Welcome back to Campus Radio</h2>
+    <p>Each role now runs through Node.js + EJS with data served straight from MongoDB. Sessions remember where you left off.</p>
+    <div class="actions" style="margin-top: 12px;">
+      <a class="btn" href="/dj">Open DJ Board</a>
+      <a class="btn secondary" href="/producer">Producer</a>
+      <a class="btn secondary" href="/manager">Manager</a>
+    </div>
+  </div>
+  <div>
+    <div class="card" style="background: var(--surface-strong); box-shadow: none;">
+      <h3 style="margin-top:0;">Continue where you left off</h3>
+      <% if (lastRole && lastRoleFile && lastVisitedAt) { %>
+        <p class="muted">
+          Last visit: <strong><%= lastRole %></strong>
+          <span id="relTime" class="badge" data-ts="<%= lastVisitedAt %>">just now</span>
+        </p>
+        <a class="btn" href="/<%= lastRoleFile %>">Resume <%= lastRole %></a>
+      <% } else { %>
+        <p class="muted">No recent activity yet. Visit any role to start a session.</p>
+        <button class="btn" disabled>No recent page</button>
+      <% } %>
+    </div>
+  </div>
+</section>
+
+<section class="card" id="quickstart">
+  <h2>Role-based navigation</h2>
+  <div class="grid">
+    <div class="card" style="background: var(--surface-strong);">
+      <h3>DJ</h3>
+      <p class="muted">Build and validate live queues backed by MongoDB.</p>
+      <a class="btn" href="/dj">Open DJ Dashboard</a>
+    </div>
+    <div class="card" style="background: var(--surface-strong);">
+      <h3>Producer</h3>
+      <p class="muted">Curate the station library; changes persist to the database.</p>
+      <a class="btn" href="/producer">Open Producer Console</a>
+    </div>
+    <div class="card" style="background: var(--surface-strong);">
+      <h3>Manager</h3>
+      <p class="muted">Control show lineups and schedule slots dynamically.</p>
+      <a class="btn" href="/manager">Open Manager Dashboard</a>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Session state</h2>
+  <p class="muted">Session continuity is persisted on the server. Closing and reopening the tab keeps your queue, show selection, and schedule intact until you log out.</p>
+  <p class="muted" style="font-family: monospace;">Session ID: <%= (res.locals.sessionId || '').substring(0, 20) %>...</p>
+</section>
+
+<%- include('partials/footer') %>

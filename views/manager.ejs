@@ -1,0 +1,195 @@
+<%- include('partials/header', { pageTitle: title, activePage }) %>
+
+<section class="card hero" style="grid-column: 1 / -1;">
+  <div>
+    <p class="pill">Station manager</p>
+    <h2>Control shows and slots</h2>
+    <p class="muted">Shows, genres, and schedule slots live in MongoDB. Updates reflect instantly in the DJ dashboard.</p>
+  </div>
+  <div class="card" style="background: var(--surface-strong); box-shadow: none;">
+    <div class="muted">Shows configured</div>
+    <div class="stat-value" id="showCount"><%= shows.length %></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Create a show</h2>
+  <form id="showForm">
+    <div class="grid">
+      <div class="row">
+        <label for="s-title">Title *</label>
+        <input id="s-title" name="title" type="text" required placeholder="Late Night Requests">
+      </div>
+      <div class="row">
+        <label for="s-genre">Genre</label>
+        <input id="s-genre" name="genre" type="text" placeholder="Indie / Electronic">
+      </div>
+      <div class="row">
+        <label for="s-desc">Description</label>
+        <textarea id="s-desc" name="description" rows="2" placeholder="Brief summary"></textarea>
+      </div>
+    </div>
+    <div class="actions" style="margin-top: 10px;">
+      <button type="submit" class="btn">Save show</button>
+      <span id="managerStatus" class="status"></span>
+    </div>
+  </form>
+</section>
+
+<section class="card" style="grid-column: 1 / -1;">
+  <h2>Live shows</h2>
+  <div id="showList" class="grid">
+    <% shows.forEach(show => { %>
+      <div class="card" data-slug="<%= show.slug %>">
+        <div class="flex space-between">
+          <div>
+            <h3 style="margin: 0;"><%= show.title %></h3>
+            <p class="muted"><%= show.genre %></p>
+          </div>
+          <span class="badge">Slug: <%= show.slug %></span>
+        </div>
+        <p class="muted"><%= show.description %></p>
+        <form class="slotForm">
+          <div class="grid">
+            <div class="row">
+              <label>Date</label>
+              <input type="date" name="date" value="<%= show.slots[0]?.date || '' %>">
+            </div>
+            <div class="row">
+              <label>Time</label>
+              <input type="time" name="time" step="60" value="<%= show.slots[0]?.time || '' %>">
+            </div>
+            <div class="row">
+              <label>DJ Name</label>
+              <input type="text" name="djName" value="<%= show.slots[0]?.djName || '' %>" placeholder="Assigned DJ">
+            </div>
+            <div class="row">
+              <label>Note</label>
+              <input type="text" name="note" value="<%= show.slots[0]?.note || '' %>" placeholder="Special notes">
+            </div>
+          </div>
+          <div class="actions" style="margin-top: 8px;">
+            <button type="submit" class="btn">Update slot</button>
+          </div>
+        </form>
+      </div>
+    <% }) %>
+    <% if (shows.length === 0) { %>
+      <p class="muted">No shows yet. Create one above.</p>
+    <% } %>
+  </div>
+</section>
+
+<script>
+  const managerStatus = document.getElementById('managerStatus');
+
+  function setManagerStatus(msg, type = 'ok') {
+    if (!managerStatus) return;
+    managerStatus.textContent = msg;
+    managerStatus.style.color = type === 'ok' ? 'var(--primary)' : '#ef4444';
+    if (msg) setTimeout(() => managerStatus.textContent = '', 2000);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('showForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        title: document.getElementById('s-title').value.trim(),
+        genre: document.getElementById('s-genre').value.trim(),
+        description: document.getElementById('s-desc').value.trim()
+      };
+      if (!payload.title || payload.title.length < 3) {
+        return setManagerStatus('Title must be at least 3 characters', 'err');
+      }
+      try {
+        const res = await fetch('/manager/shows', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to save show');
+        }
+        const data = await res.json();
+        appendShowCard(data.show);
+        document.getElementById('showCount').textContent = Number(document.getElementById('showCount').textContent) + 1;
+        e.target.reset();
+        setManagerStatus('Show created');
+      } catch (err) {
+        setManagerStatus(err.message, 'err');
+      }
+    });
+
+    document.getElementById('showList').addEventListener('submit', async (e) => {
+      const form = e.target.closest('.slotForm');
+      if (!form) return;
+      e.preventDefault();
+      const card = form.closest('[data-slug]');
+      const slug = card.dataset.slug;
+      const payload = {
+        date: form.querySelector('[name="date"]').value,
+        time: form.querySelector('[name="time"]').value,
+        djName: form.querySelector('[name="djName"]').value,
+        note: form.querySelector('[name="note"]').value
+      };
+      try {
+        const res = await fetch(`/manager/shows/${slug}/slot`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to update slot');
+        }
+        setManagerStatus(`Slot updated for ${slug}`);
+      } catch (err) {
+        setManagerStatus(err.message, 'err');
+      }
+    });
+  });
+
+  function appendShowCard(show) {
+    const list = document.getElementById('showList');
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.slug = show.slug;
+    card.innerHTML = `
+      <div class="flex space-between">
+        <div>
+          <h3 style="margin: 0;">${show.title}</h3>
+          <p class="muted">${show.genre || ''}</p>
+        </div>
+        <span class="badge">Slug: ${show.slug}</span>
+      </div>
+      <p class="muted">${show.description || ''}</p>
+      <form class="slotForm">
+        <div class="grid">
+          <div class="row">
+            <label>Date</label>
+            <input type="date" name="date" value="">
+          </div>
+          <div class="row">
+            <label>Time</label>
+            <input type="time" name="time" step="60" value="">
+          </div>
+          <div class="row">
+            <label>DJ Name</label>
+            <input type="text" name="djName" value="" placeholder="Assigned DJ">
+          </div>
+          <div class="row">
+            <label>Note</label>
+            <input type="text" name="note" value="" placeholder="Special notes">
+          </div>
+        </div>
+        <div class="actions" style="margin-top: 8px;">
+          <button type="submit" class="btn">Update slot</button>
+        </div>
+      </form>
+    `;
+    list.appendChild(card);
+  }
+</script>
+
+<%- include('partials/footer') %>

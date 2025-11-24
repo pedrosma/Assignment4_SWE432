@@ -1,0 +1,177 @@
+<%- include('partials/header', { pageTitle: title, activePage }) %>
+
+<section class="card hero" style="grid-column: 1 / -1;">
+  <div>
+    <p class="pill">Producer console</p>
+    <h2>Manage the station library</h2>
+    <p class="muted">All tracks live in MongoDB. Add or remove songs here and they become available to DJs instantly.</p>
+  </div>
+  <div>
+    <div class="card" style="background: var(--surface-strong); box-shadow: none;">
+      <div class="muted">Tracks in catalog</div>
+      <div class="stat-value" id="catalogCount"><%= tracks.length %></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Add a new track</h2>
+  <form id="trackForm">
+    <div class="grid">
+      <div class="row">
+        <label for="t-title">Title *</label>
+        <input id="t-title" name="title" type="text" required placeholder="Library Lo-Fi">
+      </div>
+      <div class="row">
+        <label for="t-artist">Artist</label>
+        <input id="t-artist" name="artist" type="text" placeholder="Campus Artist">
+      </div>
+      <div class="row">
+        <label for="t-bpm">BPM</label>
+        <input id="t-bpm" name="bpm" type="number" min="0" step="1" placeholder="120">
+      </div>
+      <div class="row">
+        <label for="t-duration">Duration (mm:ss) *</label>
+        <input id="t-duration" name="duration" type="text" required placeholder="03:45">
+      </div>
+    </div>
+    <div class="actions" style="margin-top: 10px;">
+      <button type="submit" class="btn">Save track</button>
+      <span id="producerStatus" class="status"></span>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="flex space-between">
+    <h2>Catalog (database)</h2>
+    <span class="badge">Live: <%= tracks.length %> tracks</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Track</th>
+        <th>Length</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="trackTable">
+      <% if (tracks.length === 0) { %>
+        <tr><td colspan="3" class="muted">No tracks yet. Add one above.</td></tr>
+      <% } else { %>
+        <% tracks.forEach(track => { %>
+          <tr data-id="<%= track._id %>">
+            <td>
+              <strong><%= track.title %></strong><br>
+              <small class="muted"><%= track.artist %> • <%= track.bpm %> BPM</small>
+            </td>
+            <td><%= track.mmss %></td>
+            <td><button class="btn-action" data-action="delete" data-id="<%= track._id %>">Delete</button></td>
+          </tr>
+        <% }) %>
+      <% } %>
+    </tbody>
+  </table>
+</section>
+
+<script id="producerData" type="application/json"><%= JSON.stringify(tracks) %></script>
+<script>
+  const mmssToSeconds = (value) => {
+    const [m, s] = String(value || '').split(':').map(Number);
+    if (!Number.isInteger(m) || !Number.isInteger(s) || m < 0 || s < 0 || s > 59) return NaN;
+    return m * 60 + s;
+  };
+
+  const fmtSeconds = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  };
+
+  const statusEl = document.getElementById('producerStatus');
+
+  function setStatus(msg, type = 'ok') {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.style.color = type === 'ok' ? 'var(--primary)' : '#ef4444';
+    if (msg) setTimeout(() => statusEl.textContent = '', 2000);
+  }
+
+  function addRow(track) {
+    const tbody = document.getElementById('trackTable');
+    const tr = document.createElement('tr');
+    tr.dataset.id = track._id;
+    tr.innerHTML = `
+      <td>
+        <strong>${track.title}</strong><br>
+        <small class="muted">${track.artist || 'Unknown'} • ${track.bpm || 0} BPM</small>
+      </td>
+      <td>${track.mmss}</td>
+      <td><button class="btn-action" data-action="delete" data-id="${track._id}">Delete</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('trackForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const payload = {
+        title: form['title'].value.trim(),
+        artist: form['artist'].value.trim(),
+        bpm: Number(form['bpm'].value || 0),
+        duration: form['duration'].value.trim()
+      };
+
+      if (!payload.title || payload.title.length < 2) {
+        return setStatus('Title must be at least 2 characters', 'err');
+      }
+      if (Number.isNaN(mmssToSeconds(payload.duration))) {
+        return setStatus('Duration must be mm:ss', 'err');
+      }
+
+      try {
+        const res = await fetch('/producer/tracks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to add track');
+        }
+        const data = await res.json();
+        addRow(data.track);
+        form.reset();
+        document.getElementById('catalogCount').textContent = Number(document.getElementById('catalogCount').textContent || '0') + 1;
+        setStatus('Track saved');
+      } catch (err) {
+        setStatus(err.message, 'err');
+      }
+    });
+
+    document.getElementById('trackTable').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-action="delete"]');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      if (!confirm('Delete this track from the catalog?')) return;
+      try {
+        const res = await fetch(`/producer/tracks/${id}/delete`, { method: 'POST' });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Delete failed');
+        }
+        btn.closest('tr').remove();
+        document.getElementById('catalogCount').textContent = Math.max(0, Number(document.getElementById('catalogCount').textContent) - 1);
+        if (!document.querySelector('#trackTable tr')) {
+          document.getElementById('trackTable').innerHTML = '<tr><td colspan="3" class="muted">No tracks yet. Add one above.</td></tr>';
+        }
+        setStatus('Removed');
+      } catch (err) {
+        setStatus(err.message, 'err');
+      }
+    });
+  });
+</script>
+
+<%- include('partials/footer') %>

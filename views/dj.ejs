@@ -1,0 +1,402 @@
+<%- include('partials/header', { pageTitle: title, activePage }) %>
+
+<section class="card hero" style="grid-column: 1 / -1;">
+  <div>
+    <p class="pill">Session <%= profile.sessionId.substring(0, 12) %>...</p>
+    <h2>DJ Dashboard</h2>
+    <p class="muted">Queue management, validation, and show selection are fully backed by MongoDB. Sessions keep your work intact until logout.</p>
+  </div>
+  <div class="grid">
+    <div class="card" style="background: var(--surface-strong);">
+      <div class="muted">Tracks in queue</div>
+      <div class="stat-value" id="totalTracks"><%= stats.tracksQueued %></div>
+    </div>
+    <div class="card" style="background: var(--surface-strong);">
+      <div class="muted">Total duration</div>
+      <div class="stat-value" id="totalDuration"><%= fmtSeconds(stats.totalSeconds) %></div>
+    </div>
+    <div class="card" style="background: var(--surface-strong);">
+      <div class="muted">Completed gigs</div>
+      <div class="stat-value" id="gigsCount"><%= stats.gigs %></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Show + slot (from DB)</h2>
+  <form id="selectForm">
+    <div class="grid">
+      <div class="row">
+        <label for="pselect">Show</label>
+        <select id="pselect" name="show" required>
+          <option value="">Select a show</option>
+          <% shows.forEach(show => { %>
+            <option value="<%= show.slug %>" <%= currentShow === show.slug ? 'selected' : '' %>><%= show.title %> — <%= show.genre %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="row">
+        <label for="slot-date">Date</label>
+        <input type="date" id="slot-date" name="date" value="<%= (currentSlot && currentSlot.date) ? currentSlot.date : '' %>">
+      </div>
+      <div class="row">
+        <label for="slot-time">Time</label>
+        <input type="time" id="slot-time" name="time" step="60" value="<%= (currentSlot && currentSlot.time) ? currentSlot.time : '' %>">
+      </div>
+    </div>
+    <div class="actions" style="margin-top: 10px;">
+      <button type="submit" class="btn">Save selection</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Quick add (validated)</h2>
+  <form id="quickForm">
+    <div class="grid">
+      <div class="row">
+        <label for="title">Title *</label>
+        <input id="title" name="title" type="text" placeholder="Track title" required>
+        <small class="validation-message" id="title-error"></small>
+      </div>
+      <div class="row">
+        <label for="artist">Artist</label>
+        <input id="artist" name="artist" type="text" placeholder="Artist name">
+      </div>
+      <div class="row">
+        <label for="bpm">BPM</label>
+        <input id="bpm" name="bpm" type="number" min="0" step="1" placeholder="0">
+      </div>
+      <div class="row">
+        <label for="duration">Duration (mm:ss) *</label>
+        <input id="duration" name="duration" type="text" placeholder="03:45" required>
+        <small class="validation-message" id="duration-error"></small>
+      </div>
+    </div>
+    <div class="actions" style="margin-top: 10px;">
+      <button type="submit" class="btn">Add to queue</button>
+      <button type="reset" class="btn secondary">Reset</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Station library (Mongo)</h2>
+  <p class="muted">Click a track to push it to your live queue.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Track</th>
+        <th>Length</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="catalogBody">
+      <% catalog.forEach(track => { %>
+        <tr>
+          <td>
+            <strong><%= track.title %></strong><br>
+            <small class="muted"><%= track.artist %> • <%= track.bpm %> BPM</small>
+          </td>
+          <td><%= track.mmss %></td>
+          <td><button class="btn-action" data-track-id="<%= track._id %>" data-title="<%= track.title %>">Queue</button></td>
+        </tr>
+      <% }) %>
+      <% if (catalog.length === 0) { %>
+        <tr><td colspan="3" class="muted">No catalog tracks yet. Add some in Producer.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</section>
+
+<section class="card" id="queue">
+  <div class="flex space-between">
+    <h2>Playback queue (session-backed)</h2>
+    <div class="flex">
+      <input id="q" type="search" placeholder="Filter queue...">
+      <span class="badge" id="search-hint">Live filter</span>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Track</th>
+        <th>Duration</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="queueBody">
+      <% if (queue.length === 0) { %>
+        <tr><td colspan="4" class="muted" style="text-align:center;">No tracks in queue. Add from catalog or the form.</td></tr>
+      <% } else { %>
+        <% queue.forEach((track, index) => { %>
+          <tr class="track-row" data-index="<%= index %>">
+            <td><%= index + 1 %></td>
+            <td>
+              <strong><%= track.title %></strong>
+              <% if (track.artist) { %><br><small class="muted"><%= track.artist %></small><% } %>
+              <% if (track.bpm) { %><br><small class="muted"><%= track.bpm %> BPM</small><% } %>
+            </td>
+            <td><%= track.mmss %></td>
+            <td class="table-actions">
+              <button type="button" class="btn-action" data-action="up" data-index="<%= index %>" <%= index === 0 ? 'disabled' : '' %>>↑</button>
+              <button type="button" class="btn-action" data-action="down" data-index="<%= index %>" <%= index === queue.length - 1 ? 'disabled' : '' %>>↓</button>
+              <button type="button" class="btn-action" data-action="del" data-index="<%= index %>">Remove</button>
+            </td>
+          </tr>
+        <% }) %>
+      <% } %>
+    </tbody>
+  </table>
+  <p id="nowPlaying" class="muted" style="margin-top: 10px;">
+    <% if (queue.length > 0) { %>
+      ♪ <%= queue[0].title %> <% if (queue[0].artist) { %>– <%= queue[0].artist %><% } %>
+    <% } else { %>
+      No track playing
+    <% } %>
+  </p>
+</section>
+
+<section class="card">
+  <h2>Status</h2>
+  <p id="status" class="status" aria-live="polite"></p>
+</section>
+
+<script id="catalogData" type="application/json"><%= JSON.stringify(catalog) %></script>
+
+<script>
+  const API_BASE = '/dj';
+
+  const mmssToSeconds = (v) => {
+    const [m, s] = String(v || '').trim().split(':').map(Number);
+    if (!Number.isInteger(m) || !Number.isInteger(s) || m < 0 || s < 0 || s > 59) return NaN;
+    return m * 60 + s;
+  };
+
+  const fmtSeconds = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  };
+
+  function showStatus(msg, type = 'ok', ms = 2000) {
+    const el = document.getElementById('status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = type === 'ok' ? 'var(--primary)' : '#ef4444';
+    if (ms > 0) setTimeout(() => el.textContent = '', ms);
+  }
+
+  function updateStats(stats) {
+    if (!stats) return;
+    if (stats.tracksQueued !== undefined) document.getElementById('totalTracks').textContent = stats.tracksQueued;
+    if (stats.totalSeconds !== undefined) document.getElementById('totalDuration').textContent = fmtSeconds(stats.totalSeconds);
+    if (stats.gigs !== undefined) document.getElementById('gigsCount').textContent = stats.gigs;
+  }
+
+  function updateQueueDisplay(queue, stats) {
+    const tbody = document.getElementById('queueBody');
+    tbody.innerHTML = '';
+
+    if (!queue || queue.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;">No tracks in queue. Add from catalog or the form.</td></tr>';
+      document.getElementById('nowPlaying').textContent = 'No track playing';
+      updateStats(stats);
+      return;
+    }
+
+    queue.forEach((track, index) => {
+      const tr = document.createElement('tr');
+      tr.className = 'track-row';
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+        <td>
+          <strong>${track.title}</strong>
+          ${track.artist ? `<br><small class="muted">${track.artist}</small>` : ''}
+          ${track.bpm ? `<br><small class="muted">${track.bpm} BPM</small>` : ''}
+        </td>
+        <td>${track.mmss}</td>
+        <td class="table-actions">
+          <button class="btn-action" data-action="up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
+          <button class="btn-action" data-action="down" data-index="${index}" ${index === queue.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="btn-action" data-action="del" data-index="${index}">Remove</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    const now = document.getElementById('nowPlaying');
+    now.textContent = `♪ ${queue[0].title}${queue[0].artist ? ' – ' + queue[0].artist : ''}`;
+    now.classList.remove('muted');
+    updateStats(stats);
+  }
+
+  async function handleQueueAction(action, index) {
+    if (!Number.isInteger(index) || index < 0) return;
+    let body;
+    if (action === 'del') body = { index };
+    if (action === 'up') body = { fromIndex: index, toIndex: index - 1 };
+    if (action === 'down') body = { fromIndex: index, toIndex: index + 1 };
+
+    const endpoint = action === 'del' ? 'remove-track' : 'move-track';
+    try {
+      const res = await fetch(`${API_BASE}/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Request failed');
+      }
+      const data = await res.json();
+      updateQueueDisplay(data.queue, data.stats);
+      showStatus('Queue updated');
+    } catch (err) {
+      console.error(err);
+      showStatus(err.message, 'err');
+    }
+  }
+
+  function validateQuickForm(form) {
+    let valid = true;
+    const title = form.querySelector('#title');
+    const duration = form.querySelector('#duration');
+    const tErr = document.getElementById('title-error');
+    const dErr = document.getElementById('duration-error');
+
+    if (!title.value || title.value.trim().length < 2) {
+      tErr.textContent = 'Title required (min 2 chars)';
+      valid = false;
+    } else {
+      tErr.textContent = '';
+    }
+
+    const seconds = mmssToSeconds(duration.value);
+    if (Number.isNaN(seconds) || seconds <= 0 || seconds > 600) {
+      dErr.textContent = 'Use mm:ss and keep under 10:00';
+      valid = false;
+    } else {
+      dErr.textContent = '';
+    }
+
+    return valid;
+  }
+
+  async function addTrackFromCatalog(trackId, title) {
+    try {
+      const res = await fetch(`${API_BASE}/add-track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackId })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add track');
+      }
+      const data = await res.json();
+      updateQueueDisplay(data.queue, data.stats);
+      showStatus(`Queued “${title}”`);
+    } catch (err) {
+      showStatus(err.message, 'err');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('catalogBody').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-track-id]');
+      if (!btn) return;
+      addTrackFromCatalog(btn.dataset.trackId, btn.dataset.title);
+    });
+
+    document.getElementById('queueBody').addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-action');
+      if (!btn) return;
+      handleQueueAction(btn.dataset.action, Number(btn.dataset.index));
+    });
+
+    document.getElementById('quickForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      if (!validateQuickForm(form)) {
+        showStatus('Please fix validation issues', 'err');
+        return;
+      }
+
+      const payload = {
+        title: form.title.value.trim(),
+        artist: form.artist.value.trim(),
+        bpm: Number(form.bpm.value || 0),
+        duration: form.duration.value.trim()
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/add-track`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to add track');
+        }
+        const data = await res.json();
+        form.reset();
+        updateQueueDisplay(data.queue, data.stats);
+        showStatus('Track added');
+      } catch (err) {
+        showStatus(err.message, 'err');
+      }
+    });
+
+    document.getElementById('selectForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        show: document.getElementById('pselect').value,
+        date: document.getElementById('slot-date').value,
+        time: document.getElementById('slot-time').value
+      };
+      if (!payload.show) return showStatus('Select a show', 'err');
+
+      try {
+        const res = await fetch(`${API_BASE}/save-show`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to save');
+        }
+        const data = await res.json();
+        updateStats(data.stats);
+        showStatus('Show saved');
+      } catch (err) {
+        showStatus(err.message, 'err');
+      }
+    });
+
+    document.getElementById('q').addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase();
+      const rows = document.querySelectorAll('#queueBody tr');
+      let visible = 0;
+      rows.forEach(row => {
+        if (!term) {
+          row.style.display = '';
+          visible++;
+          return;
+        }
+        const match = row.textContent.toLowerCase().includes(term);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      const hint = document.getElementById('search-hint');
+      hint.textContent = term ? `${visible} match(es)` : 'Live filter';
+    });
+
+    showStatus('DJ dashboard ready');
+  });
+</script>
+
+<%- include('partials/footer') %>
