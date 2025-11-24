@@ -57,7 +57,6 @@
   <h2>Session state</h2>
   <p class="muted">Session continuity is persisted on the server. Closing and reopening the tab keeps your queue, show selection, and schedule intact until you log out.</p>
 
-  <!-- FIXED: removed res.locals.*, now using sessionId directly -->
   <p class="muted" style="font-family: monospace;">
     Session ID: <%= (sessionId || '').substring(0, 20) %>...
   </p>

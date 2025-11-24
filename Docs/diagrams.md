@@ -1,9 +1,5 @@
 # Architecture and Diagrams (Assignment 4)
 
-Documented for: Campus Radio · Node.js + Express + EJS + MongoDB  
-Author: Student  
-Date: 2024-11-23
-
 ## Initial Component Diagram (pre-code, MVC-oriented)
 
 ```

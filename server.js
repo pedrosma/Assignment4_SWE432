@@ -11,7 +11,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/campus-radio';
 
-// --------- DB CONNECTION ----------
 async function connectDatabase() {
   try {
     await mongoose.connect(MONGODB_URI);
@@ -22,7 +21,6 @@ async function connectDatabase() {
   }
 }
 
-// --------- MIDDLEWARES ----------
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -32,9 +30,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // en prod con HTTPS -> true
+    secure: false,
     httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24 // 1 día
+    maxAge: 1000 * 60 * 60 * 24
   },
   store: MongoStore.create({
     mongoUrl: MONGODB_URI,
@@ -43,30 +41,27 @@ app.use(session({
   })
 }));
 
-// Variables disponibles en TODAS las vistas
 app.use((req, res, next) => {
   res.locals.sessionId = req.sessionID;
   res.locals.isLoggedIn = !!req.session.userId;
   next();
 });
 
-// --------- VIEW ENGINE ----------
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// --------- ROUTES (SOLO INDEX + DJ) ----------
 const indexRoutes = require('./routes/index');
 const djRoutes = require('./routes/dj');
+const authRoutes = require('./routes/auth');
 
 app.use('/', indexRoutes);
 app.use('/dj', djRoutes);
+app.use('/auth', authRoutes);
 
-// --------- 404 ----------
 app.use((req, res) => {
   res.status(404).render('404', { title: 'Page Not Found' });
 });
 
-// --------- ERROR HANDLER ----------
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).render('error', {
@@ -75,7 +70,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// --------- START SERVER ----------
 async function startServer() {
   await connectDatabase();
   await seedDatabase();
