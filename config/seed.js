@@ -1,5 +1,7 @@
 const Track = require('../models/Track');
 const Show = require('../models/Show');
+const Genre = require('../models/Genre');
+const ManagerProfile = require('../models/ManagerProfile');
 
 async function seedTracks() {
   const count = await Track.countDocuments();
@@ -51,10 +53,106 @@ async function seedShows() {
   console.log(`✓ Seeded ${defaults.length} shows`);
 }
 
+async function seedGenres() {
+  const count = await Genre.countDocuments();
+  if (count > 0) return;
+
+  const genres = [
+    { name: 'EDM', description: 'Electronic Dance Music', isActive: true },
+    { name: 'House', description: 'House Music', isActive: true },
+    { name: 'Synthwave', description: 'Retro synthesizer music', isActive: true },
+    { name: 'Lo-Fi', description: 'Low fidelity chill beats', isActive: true },
+    { name: 'Pop/Rock', description: 'Popular and Rock music', isActive: true },
+    { name: 'Variety', description: 'Mixed genres', isActive: true },
+    { name: 'Electronic', description: 'Electronic music', isActive: true },
+    { name: 'Chill EDM', description: 'Relaxed electronic music', isActive: true }
+  ];
+
+  await Genre.insertMany(genres);
+  console.log(`✓ Seeded ${genres.length} genres`);
+}
+
+async function seedManagerProfile() {
+  // Only seed if the default manager profile doesn't exist yet
+  const existingDefault = await ManagerProfile.findOne({ sessionId: 'default-manager-session' });
+  if (existingDefault) {
+    console.log('✓ Default manager profile already exists');
+    return;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  
+  const defaultProfile = new ManagerProfile({
+    sessionId: 'default-manager-session',
+    userId: null,
+    schedule: [
+      {
+        date: today,
+        time: '20:00',
+        timeSlot: '20:00 - 21:00',
+        djName: 'DJ Luna',
+        genre: 'Lo-Fi',
+        isFeatured: false
+      },
+      {
+        date: today,
+        time: '21:00',
+        timeSlot: '21:00 - 22:00',
+        djName: 'DJ Echo',
+        genre: 'Synthwave',
+        isFeatured: false
+      },
+      {
+        date: today,
+        time: '22:00',
+        timeSlot: '22:00 - 23:00',
+        djName: 'DJ Mirage',
+        genre: 'Chill EDM',
+        isFeatured: false
+      }
+    ],
+    songReports: [
+      {
+        assignedSong: 'Moonlight Drive',
+        djName: 'DJ Luna',
+        status: 'played "Moonlight Drive"',
+        icon: '✅',
+        date: new Date()
+      },
+      {
+        assignedSong: 'Digital Mirage',
+        djName: 'DJ Mirage',
+        status: 'replaced with "Echo Chamber"',
+        icon: '⚠️',
+        date: new Date()
+      },
+      {
+        assignedSong: 'Solar Drift',
+        djName: 'DJ Solstice',
+        status: 'played as assigned',
+        icon: '✅',
+        date: new Date()
+      },
+      {
+        assignedSong: 'Neon Nights',
+        djName: 'DJ Echo',
+        status: 'played as assigned',
+        icon: '✅',
+        date: new Date()
+      }
+    ]
+  });
+
+  await defaultProfile.save();
+  console.log('✓ Seeded default manager profile with 3 scheduled DJs');
+}
+
 async function seedDatabase() {
   await Promise.all([
     seedTracks(),
-    seedShows()
+    seedShows(),
+    seedGenres(),
+    seedManagerProfile()
   ]);
 }
 

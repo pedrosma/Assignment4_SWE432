@@ -35,23 +35,65 @@ router.get('/', async (req, res) => {
 
     const genres = await Genre.find().sort({ name: 1 });
     
+    let schedule = profile.schedule;
+    let songReports = profile.songReports;
+    
+    if (schedule.length === 0) {
+      const defaultProfile = await ManagerProfile.findOne({ sessionId: 'default-manager-session' });
+      if (defaultProfile) {
+        schedule = defaultProfile.schedule;
+        songReports = defaultProfile.songReports;
+        console.log('Using default profile data for display');
+      }
+    }
+    
+    let featuredDJ = {
+      name: 'No DJ scheduled',
+      genre: 'N/A',
+      timeSlot: 'N/A'
+    };
+    
+    if (schedule.length > 0) {
+      const first = schedule[0];
+      featuredDJ = {
+        name: first.djName,
+        genre: first.genre,
+        timeSlot: first.timeSlot
+      };
+    }
+    
+    let upcomingDJs = [];
+    if (schedule.length > 1) {
+      upcomingDJs = schedule.slice(1, 4).map(slot => ({
+        name: slot.djName,
+        genre: slot.genre,
+        timeSlot: slot.timeSlot
+      }));
+    }
+    
+    while (upcomingDJs.length < 3) {
+      upcomingDJs.push({
+        name: 'TBA',
+        genre: 'TBA',
+        timeSlot: 'TBA'
+      });
+    }
+    
+    const stats = {
+      djsScheduled: schedule.length,
+      activeShows: upcomingDJs.filter(dj => dj.name !== 'TBA').length,
+      songReports: songReports.length
+    };
+    
     res.render('manager', {
       title: 'Manager Dashboard - Campus Radio',
       profile,
-      schedule: profile.schedule,
-      stats: profile.stats,
-      featuredDJ: profile.featuredDJ || {
-        name: 'DJ Echo',
-        genre: 'Synthwave / Chillwave',
-        timeSlot: '9:00 PM - 10:00 PM'
-      },
-      upcomingDJs: profile.upcomingDJs.length > 0 ? profile.upcomingDJs : [
-        { name: 'DJ Mirage', genre: 'Chill EDM', timeSlot: '10:00 PM - 11:00 PM' },
-        { name: 'DJ Solstice', genre: 'Deep House', timeSlot: '11:00 PM - 12:00 AM' },
-        { name: 'DJ Static', genre: 'Ambient / Downtempo', timeSlot: '12:00 AM - 1:00 AM' }
-      ],
+      schedule: schedule,
+      stats: stats,
+      featuredDJ: featuredDJ,
+      upcomingDJs: upcomingDJs,
       genres: genres.length > 0 ? genres.map(g => g.name) : ['EDM', 'House', 'Synthwave', 'Lo-Fi'],
-      songReports: profile.songReports,
+      songReports: songReports,
       activePage: 'manager'
     });
   } catch (error) {
@@ -71,20 +113,17 @@ router.post('/add-schedule', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'All fields required' });
     }
 
-    // Validate DJ name
     const namePattern = /^[A-Za-z\s]+$/;
     if (!namePattern.test(djName)) {
       return res.status(400).json({ error: 'DJ name can only contain letters and spaces' });
     }
 
-    // Validate time is not in the past
     const selectedDate = new Date(date + 'T' + time);
     const now = new Date();
     if (selectedDate < now) {
       return res.status(400).json({ error: 'Cannot select a time in the past' });
     }
 
-    // Check for duplicates
     const isDuplicate = req.managerProfile.schedule.some(s => 
       s.djName.toLowerCase() === djName.toLowerCase()
     );
@@ -92,7 +131,6 @@ router.post('/add-schedule', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'This DJ is already in the schedule' });
     }
 
-    // Create time slot string
     const hour = parseInt(time.split(':')[0]);
     const nextHour = hour + 1;
     const timeSlot = `${hour}:00 - ${nextHour}:00`;

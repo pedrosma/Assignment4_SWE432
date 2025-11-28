@@ -22,17 +22,15 @@
   </div>
 </section>
 
-<section class="card">
+<section class="card" style="grid-column: 1 / -1;">
   <h2>Featured DJ Tonight</h2>
-  <div class="grid" style="align-items: center;">
-    <div>
-      <h3 id="featured-dj-name" style="margin: 0;"><%= featuredDJ.name %></h3>
-      <p class="muted" id="featured-dj-genre">Genre: <%= featuredDJ.genre %></p>
-      <p class="muted" id="featured-dj-time">Live Now: <%= featuredDJ.timeSlot %></p>
-    </div>
+  <div style="margin-bottom: 20px;">
+    <h3 id="featured-dj-name" style="margin: 0 0 8px 0;"><%= featuredDJ.name %></h3>
+    <p class="muted" id="featured-dj-genre" style="margin: 4px 0;">Genre: <%= featuredDJ.genre %></p>
+    <p class="muted" id="featured-dj-time" style="margin: 4px 0;">Live Now: <%= featuredDJ.timeSlot %></p>
   </div>
   
-  <h3 style="margin-top: 20px;">Scheduled DJs:</h3>
+  <h3 style="margin-top: 20px; margin-bottom: 10px;">Scheduled DJs:</h3>
   <ul class="upcoming-sets">
     <% upcomingDJs.forEach(dj => { %>
       <li><%= dj.timeSlot %>: <%= dj.name %> — <%= dj.genre %></li>
@@ -144,7 +142,7 @@
   const API_BASE = '/manager';
 
   //variables
-  let djCount = <%= schedule.length %>;
+  let djCount = parseInt("<%= schedule.length %>");
   const stationName = "Campus Radio";
   var isOpen = true;
 
@@ -199,6 +197,46 @@
     updateStats(stats);
   }
 
+  function updateFeaturedSection(schedule) {
+    //update featured djs
+    if (schedule.length > 0) {
+      const firstDJ = schedule[0];
+      document.getElementById('featured-dj-name').textContent = firstDJ.djName;
+      document.getElementById('featured-dj-genre').textContent = 'Genre: ' + firstDJ.genre;
+      document.getElementById('featured-dj-time').textContent = 'Live Now: ' + firstDJ.timeSlot;
+    } else {
+      document.getElementById('featured-dj-name').textContent = 'No DJ scheduled';
+      document.getElementById('featured-dj-genre').textContent = 'Genre: N/A';
+      document.getElementById('featured-dj-time').textContent = 'Live Now: N/A';
+    }
+    
+    const upcomingList = document.querySelector('.upcoming-sets');
+    upcomingList.innerHTML = '';
+    
+    const upcomingDJs = schedule.slice(1, 4);
+    
+    if (upcomingDJs.length === 0) {
+      for (let i = 0; i < 3; i++) {
+        const li = document.createElement('li');
+        li.textContent = 'TBA: TBA — TBA';
+        upcomingList.appendChild(li);
+      }
+    } else {
+      upcomingDJs.forEach(dj => {
+        const li = document.createElement('li');
+        li.textContent = `${dj.timeSlot}: ${dj.djName} — ${dj.genre}`;
+        upcomingList.appendChild(li);
+      });
+      
+      //if we dont have any scheduled
+      while (upcomingList.children.length < 3) {
+        const li = document.createElement('li');
+        li.textContent = 'TBA: TBA — TBA';
+        upcomingList.appendChild(li);
+      }
+    }
+  }
+
   //form validation
   async function handleSubmit(event) {
     event.preventDefault();
@@ -232,7 +270,7 @@
       document.getElementById('time-error').textContent = "";
     }
 
-    // If all validations pass, submit to backend
+    //submit if everything passes
     try {
       const res = await fetch(`${API_BASE}/add-schedule`, {
         method: 'POST',
@@ -247,6 +285,7 @@
 
       const data = await res.json();
       updateScheduleDisplay(data.schedule, data.stats);
+      updateFeaturedSection(data.schedule);
       showStatus('DJ assigned successfully!');
       document.getElementById("signUpForm").reset();
     } catch (err) {
@@ -287,6 +326,7 @@
 
         const data = await res.json();
         updateScheduleDisplay(data.schedule, data.stats);
+        updateFeaturedSection(data.schedule);
         showStatus('DJ removed from schedule');
       } catch (err) {
         showStatus(err.message, 'error');
@@ -310,12 +350,10 @@
     });
   }
 
-  // INLINE HANDLER - Simple alert
   function showSimpleAlert() {
     window.alert("This is a simple alert message!");
   }
 
-  // Make inline functions available globally
   window.changeTheme = changeTheme;
   window.clearForm = clearForm;
   window.deleteRow = deleteRow;
@@ -338,7 +376,7 @@
       form.addEventListener("submit", handleSubmit);
     }
 
-    // Event #3: Hover test - mouseenter event
+    //hover test
     let hoverBtn = document.getElementById("hover-btn");
     if (hoverBtn) {
       hoverBtn.addEventListener("mouseenter", function() {
@@ -346,14 +384,14 @@
         this.textContent = "You're hovering!";
       });
 
-      // Event #4: Hover test - mouseleave event
+      //hover leave test
       hoverBtn.addEventListener("mouseleave", function() {
         this.style.backgroundColor = "";
         this.textContent = "Hover Test";
       });
     }
 
-    // Event #5: Click test - click event
+    //click event test
     let clickBtn = document.getElementById("click-btn");
     if (clickBtn) {
       clickBtn.addEventListener("click", function() {
@@ -363,7 +401,6 @@
       });
     }
 
-    // Handle schedule actions
     document.getElementById('schedule-body').addEventListener('click', (e) => {
       const btn = e.target.closest('.btn-action');
       if (!btn) return;
@@ -375,7 +412,7 @@
       }
     });
 
-    // Song search
+    //search song
     document.getElementById('song-search').addEventListener('input', filterSongs);
 
     showStatus('Manager dashboard ready');
