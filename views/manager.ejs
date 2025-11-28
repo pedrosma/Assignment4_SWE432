@@ -1,0 +1,385 @@
+<%- include('partials/header', { pageTitle: title, activePage }) %>
+
+<section class="card hero" style="grid-column: 1 / -1;">
+  <div>
+    <p class="pill">Session <%= profile.sessionId.substring(0, 12) %>...</p>
+    <h2>Manager Dashboard</h2>
+    <p class="muted">Schedule management, DJ assignments, and song reports backed by MongoDB. Sessions keep your work intact until logout.</p>
+  </div>
+  <div class="grid">
+    <div class="card" style="background: var(--surface-strong);">
+      <div class="muted">DJs scheduled</div>
+      <div class="stat-value" id="totalScheduled"><%= stats.djsScheduled %></div>
+    </div>
+    <div class="card" style="background: var(--surface-strong);">
+      <div class="muted">Active shows</div>
+      <div class="stat-value" id="activeShows"><%= stats.activeShows %></div>
+    </div>
+    <div class="card" style="background: var(--surface-strong);">
+      <div class="muted">Song reports</div>
+      <div class="stat-value" id="reportsCount"><%= stats.songReports %></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Featured DJ Tonight</h2>
+  <div class="grid" style="align-items: center;">
+    <div>
+      <h3 id="featured-dj-name" style="margin: 0;"><%= featuredDJ.name %></h3>
+      <p class="muted" id="featured-dj-genre">Genre: <%= featuredDJ.genre %></p>
+      <p class="muted" id="featured-dj-time">Live Now: <%= featuredDJ.timeSlot %></p>
+    </div>
+  </div>
+  
+  <h3 style="margin-top: 20px;">Scheduled DJs:</h3>
+  <ul class="upcoming-sets">
+    <% upcomingDJs.forEach(dj => { %>
+      <li><%= dj.timeSlot %>: <%= dj.name %> — <%= dj.genre %></li>
+    <% }) %>
+  </ul>
+</section>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; grid-column: 1 / -1;">
+  <section class="card">
+    <h2>Assign DJ to Timeslot</h2>
+    <form id="signUpForm">
+      <div class="row">
+        <label for="date">Select Date:</label>
+        <input type="date" id="date" name="date" required>
+      </div>
+
+      <div class="row">
+        <label for="time">Select Time:</label>
+        <input type="time" id="time" name="time" required>
+        <small class="validation-message" id="time-error"></small>
+      </div>
+
+      <div class="row">
+        <label for="dj">DJ Name:</label>
+        <input type="text" id="dj" name="dj" placeholder="Enter DJ name" required>
+        <small class="validation-message" id="dj-error"></small>
+      </div>
+
+      <div class="row">
+        <label for="genre">Genre:</label>
+        <select id="genre" name="genre" required>
+          <option value="">Select Genre</option>
+          <% genres.forEach(genre => { %>
+            <option value="<%= genre %>"><%= genre %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="actions" style="margin-top: 10px;">
+        <button type="submit" class="btn">Assign DJ</button>
+        <button type="button" onclick="clearForm()" class="btn secondary">Clear Form</button>
+      </div>
+    </form>
+    <div id="form-message"></div>
+  </section>
+
+  <section class="card">
+    <h2>Weekly DJ Schedule</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Time Slot</th>
+          <th>DJ Assigned</th>
+          <th>Genre</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="schedule-body">
+        <% if (schedule.length === 0) { %>
+          <tr><td colspan="4" class="muted" style="text-align:center;">No DJs scheduled yet.</td></tr>
+        <% } else { %>
+          <% schedule.forEach((slot, index) => { %>
+            <tr data-index="<%= index %>">
+              <td><%= slot.timeSlot %></td>
+              <td><%= slot.djName %></td>
+              <td><%= slot.genre %></td>
+              <td><button class="btn-action" data-action="remove" data-index="<%= index %>">Remove</button></td>
+            </tr>
+          <% }) %>
+        <% } %>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Producer vs DJ Song Report</h2>
+  <div class="flex space-between" style="margin-bottom: 10px;">
+    <p class="muted">Search songs:</p>
+    <input type="text" id="song-search" placeholder="Type to search..." style="max-width: 300px;">
+  </div>
+  
+  <ul id="song-list">
+    <% songReports.forEach(report => { %>
+      <li>Producer Assigned: "<%= report.assignedSong %>" — <%= report.djName %> <%= report.status %> <%= report.icon %></li>
+    <% }) %>
+    <% if (songReports.length === 0) { %>
+      <li class="muted">No song reports yet.</li>
+    <% } %>
+  </ul>
+</section>
+
+<section class="card">
+  <h2>Event Test Area</h2>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <button onclick="showSimpleAlert()" class="btn">Click for Alert</button>
+    <button id="hover-btn" class="btn secondary">Hover Test</button>
+    <button id="click-btn" class="btn secondary">Click Test</button>
+  </div>
+  <p id="test-output" class="muted" style="margin-top: 10px;">Test results will appear here...</p>
+</section>
+
+<section class="card">
+  <h2>Status</h2>
+  <p id="status" class="status" aria-live="polite"></p>
+</section>
+
+<script>
+  const API_BASE = '/manager';
+
+  //variables
+  let djCount = <%= schedule.length %>;
+  const stationName = "Campus Radio";
+  var isOpen = true;
+
+  //object
+  let radioHost = {
+      name: "Alex",
+      showName: "Morning Melodies",
+      yearsExperience: 5
+  };
+  console.log(radioHost.name);
+  radioHost.yearsExperience = 6;
+  radioHost.timeSlot = "8am - 10am";
+  console.log(radioHost);
+
+  function showStatus(msg, type = 'ok', ms = 3000) {
+    const el = document.getElementById('status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = type === 'ok' ? 'var(--primary)' : '#ef4444';
+    if (ms > 0) setTimeout(() => el.textContent = '', ms);
+  }
+
+  function updateStats(stats) {
+    if (!stats) return;
+    if (stats.djsScheduled !== undefined) document.getElementById('totalScheduled').textContent = stats.djsScheduled;
+    if (stats.activeShows !== undefined) document.getElementById('activeShows').textContent = stats.activeShows;
+    if (stats.songReports !== undefined) document.getElementById('reportsCount').textContent = stats.songReports;
+  }
+
+  function updateScheduleDisplay(schedule, stats) {
+    const tbody = document.getElementById('schedule-body');
+    tbody.innerHTML = '';
+
+    if (!schedule || schedule.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;">No DJs scheduled yet.</td></tr>';
+      updateStats(stats);
+      return;
+    }
+
+    schedule.forEach((slot, index) => {
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-index', index);
+      tr.innerHTML = `
+        <td>${slot.timeSlot}</td>
+        <td>${slot.djName}</td>
+        <td>${slot.genre}</td>
+        <td><button class="btn-action" data-action="remove" data-index="${index}">Remove</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    updateStats(stats);
+  }
+
+  //form validation
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    const date = document.getElementById("date").value;
+    const time = document.getElementById("time").value;
+    const djName = document.getElementById("dj").value;
+    const genre = document.getElementById("genre").value;
+
+    if (!date || !time || !djName || !genre) {
+      showStatus("Please fill in all fields!", "error");
+      return;
+    }
+
+    let namePattern = /^[A-Za-z\s]+$/;
+    if (!namePattern.test(djName)) {
+      document.getElementById('dj-error').textContent = "DJ name can only contain letters and spaces!";
+      showStatus("Invalid DJ name", "error");
+      return;
+    } else {
+      document.getElementById('dj-error').textContent = "";
+    }
+
+    let selectedDate = new Date(date + "T" + time);
+    let now = new Date();
+    if (selectedDate < now) {
+      document.getElementById('time-error').textContent = "Cannot select a time in the past!";
+      showStatus("Invalid time selection", "error");
+      return;
+    } else {
+      document.getElementById('time-error').textContent = "";
+    }
+
+    // If all validations pass, submit to backend
+    try {
+      const res = await fetch(`${API_BASE}/add-schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, time, djName, genre })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add DJ');
+      }
+
+      const data = await res.json();
+      updateScheduleDisplay(data.schedule, data.stats);
+      showStatus('DJ assigned successfully!');
+      document.getElementById("signUpForm").reset();
+    } catch (err) {
+      showStatus(err.message, 'error');
+    }
+  }
+
+  //inline event handlers
+  function changeTheme() {
+    if (window.CampusRadio && window.CampusRadio.toggleTheme) {
+      window.CampusRadio.toggleTheme();
+    }
+    console.log("Theme changed");
+  }
+
+  function clearForm() {
+    document.getElementById("signUpForm").reset();
+    document.getElementById('dj-error').textContent = "";
+    document.getElementById('time-error').textContent = "";
+    showStatus("Form cleared");
+  }
+
+  async function deleteRow(button, index) {
+    const confirmDelete = window.confirm("Are you sure you want to remove this DJ?");
+
+    if (confirmDelete) {
+      try {
+        const res = await fetch(`${API_BASE}/remove-schedule`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ index })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to remove DJ');
+        }
+
+        const data = await res.json();
+        updateScheduleDisplay(data.schedule, data.stats);
+        showStatus('DJ removed from schedule');
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
+    }
+  }
+
+  function filterSongs() {
+    let searchText = document.getElementById("song-search").value.toLowerCase();
+    let songList = document.querySelectorAll("#song-list li");
+
+    songList.forEach(function(item) {
+      let text = item.textContent.toLowerCase();
+
+      if (text.includes(searchText)) {
+        item.style.display = "";
+        item.style.backgroundColor = "var(--surface-strong)";
+      } else {
+        item.style.display = "none";
+      }
+    });
+  }
+
+  // INLINE HANDLER - Simple alert
+  function showSimpleAlert() {
+    window.alert("This is a simple alert message!");
+  }
+
+  // Make inline functions available globally
+  window.changeTheme = changeTheme;
+  window.clearForm = clearForm;
+  window.deleteRow = deleteRow;
+  window.filterSongs = filterSongs;
+  window.showSimpleAlert = showSimpleAlert;
+
+  //window object
+  document.addEventListener("DOMContentLoaded", function() {
+    console.log("Page loaded!");
+
+    let dateInput = document.getElementById("date");
+    if (dateInput) {
+      let today = new Date().toISOString().split('T')[0];
+      dateInput.min = today;
+    }
+
+    //submit form
+    let form = document.getElementById("signUpForm");
+    if (form) {
+      form.addEventListener("submit", handleSubmit);
+    }
+
+    // Event #3: Hover test - mouseenter event
+    let hoverBtn = document.getElementById("hover-btn");
+    if (hoverBtn) {
+      hoverBtn.addEventListener("mouseenter", function() {
+        this.style.backgroundColor = "var(--primary)";
+        this.textContent = "You're hovering!";
+      });
+
+      // Event #4: Hover test - mouseleave event
+      hoverBtn.addEventListener("mouseleave", function() {
+        this.style.backgroundColor = "";
+        this.textContent = "Hover Test";
+      });
+    }
+
+    // Event #5: Click test - click event
+    let clickBtn = document.getElementById("click-btn");
+    if (clickBtn) {
+      clickBtn.addEventListener("click", function() {
+        let output = document.getElementById("test-output");
+        output.textContent = "Button was clicked at " + new Date().toLocaleTimeString();
+        output.style.color = "var(--primary)";
+      });
+    }
+
+    // Handle schedule actions
+    document.getElementById('schedule-body').addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-action');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const index = Number(btn.dataset.index);
+      
+      if (action === 'remove') {
+        deleteRow(btn, index);
+      }
+    });
+
+    // Song search
+    document.getElementById('song-search').addEventListener('input', filterSongs);
+
+    showStatus('Manager dashboard ready');
+  });
+</script>
+
+<%- include('partials/footer') %>
