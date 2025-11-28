@@ -1,0 +1,483 @@
+<%- include('partials/header', { pageTitle: title, activePage }) %>
+
+<main class="content">
+  <!-- Hero / header card -->
+  <section class="card hero">
+    <div>
+      <h2>Producer Dashboard</h2>
+       <p class="pill">Session <%= profile.sessionId.substring(0, 12) %>...</p>
+      <p class="muted">
+        Manage shows, rotation, playlists, bookings, and run of show all in one place.
+      </p>
+      <p id="producer-info">
+        <strong>Producer:</strong> <%= producer.name %> — <%= producer.station %>
+        <% if (producer.genre && producer.genre.name) { %>
+          (<span class="badge"><%= producer.genre.name %></span>)
+        <% } %>
+      </p>
+    </div>
+
+  <% if (stats) { %>
+  <div class="grid">
+    <div class="card">
+      <p class="muted">Total Shows</p>
+      <p class="stat-value" id="stat-total-shows"><%= stats.totalShows %></p>
+    </div>
+    <div class="card">
+      <p class="muted">Rotation Items</p>
+      <p class="stat-value" id="stat-rotation-items"><%= stats.rotationItems %></p>
+    </div>
+    <div class="card">
+      <p class="muted">Playlists</p>
+      <p class="stat-value" id="stat-playlists"><%= stats.playlists %></p>
+    </div>
+    <div class="card">
+      <p class="muted">Bookings</p>
+      <p class="stat-value" id="stat-bookings"><%= stats.bookings %></p>
+    </div>
+  </div>
+<% } %>
+
+  </section>
+
+  <!-- Show lineup -->
+  <section class="card" style="grid-column: 1 / -1;">
+    <section aria-label="Show Lineup (This Week)">
+      <div class="flex space-between">
+        <h2>Show Lineup (This Week)</h2>
+        <span class="badge">
+          <%= producer.shows && producer.shows.length ? producer.shows.length + ' shows' : 'No shows yet' %>
+        </span>
+      </div>
+
+      <table id="show-lineup">
+        <thead>
+          <tr>
+            <th>Show</th>
+            <th>Slot</th>
+            <th>DJ</th>
+            <th>Format</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (producer.shows && producer.shows.length) { %>
+            <% producer.shows.forEach(show => { 
+                 const slot = (show.slots && show.slots.length) ? show.slots[0] : null;
+            %>
+              <tr>
+                <td><strong><%= show.title %></strong></td>
+                <td>
+                  <% if (slot) { %>
+                    <%= slot.date || 'TBD' %> <%= slot.time || '' %>
+                  <% } else { %>
+                    TBD
+                  <% } %>
+                </td>
+                <td><%= slot && slot.djName ? slot.djName : '@tbd' %></td>
+                <td><%= show.genre || 'Variety' %></td>
+                <td><%= slot && slot.note ? slot.note : 'Scheduled' %></td>
+              </tr>
+            <% }) %>
+          <% } else { %>
+            <tr>
+              <td colspan="5">No shows assigned yet.</td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </section>
+  </section>
+
+ <section class="card" style="grid-column: 1 / -1;">
+  <section aria-label="Weekly Rotation">
+    <h2>Weekly Rotation</h2>
+
+    <form id="track-form" novalidate>
+      <fieldset class="grid">
+        <legend>Add Track to Rotation</legend>
+
+        <div class="row">
+          <label for="f-title">Title</label>
+          <input id="f-title" name="title" type="text" required minlength="2" placeholder="Song title" />
+        </div>
+
+        <div class="row">
+          <label for="f-artist">Artist</label>
+          <input id="f-artist" name="artist" type="text" required minlength="2" placeholder="Artist name" />
+        </div>
+
+        <div class="row">
+          <label for="f-duration">Duration (mm:ss)</label>
+          <input id="f-duration" name="duration" type="text" required pattern="^[0-9]{1,2}:[0-5][0-9]$" placeholder="3:45" />
+        </div>
+
+        <div class="row">
+          <label for="f-bin">Bin</label>
+          <select id="f-bin" name="bin" required>
+            <option value="">Select…</option>
+            <option value="A">A (Heavy)</option>
+            <option value="B">B (Medium)</option>
+            <option value="C">C (Light)</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label for="f-notes">Notes</label>
+          <input id="f-notes" name="notes" type="text" placeholder="e.g., Clean, add to Block B" />
+        </div>
+
+        <div class="row">
+          <label>
+            Explicit?
+            <input id="f-explicit" name="explicit" type="checkbox" />
+          </label>
+        </div>
+
+        <div class="row table-actions">
+          <button class="btn" type="submit">Add to Rotation</button>
+          <button class="btn secondary" type="button" id="btn-clear-rotation">Clear Rotation</button>
+        </div>
+      </fieldset>
+    </form>
+
+    <table id="rotation-table" aria-describedby="rotation-help">
+      <caption id="rotation-help" class="muted">
+        Detailed station segment plan. Push items to a show playlist.
+      </caption>
+      <thead>
+        <tr>
+          <th>Start</th>
+          <th>Duration</th>
+          <th>Segment Type</th>
+          <th>Title / Artist / Guest</th>
+          <th>Notes / Instructions</th>
+          <th>Add to Show</th>
+        </tr>
+      </thead>
+      <tbody id="rotation-body">
+        <% if (producer.rotation && producer.rotation.length) { %>
+          <% producer.rotation.forEach(function(item, index) { %>
+            <tr>
+              <td>—</td>
+              <td><%= item.track && item.track.mmss ? item.track.mmss : '—' %></td>
+              <td>Music</td>
+              <td>
+                <% if (item.track) { %>
+                  <%= item.track.title %>
+                  <% if (item.track.artist) { %> – <%= item.track.artist %><% } %>
+                <% } else { %>
+                  (Track not loaded)
+                <% } %>
+              </td>
+              <td>
+                Bin <%= item.bin %>
+                <% if (item.notes) { %> — <%= item.notes %><% } %>
+                <% if (item.explicit) { %> (Explicit)<% } %>
+              </td>
+              <td>
+                <button class="btn secondary remove-rotation" data-index="<%= index %>">
+                  Remove
+                </button>
+              </td>
+            </tr>
+          <% }) %>
+        <% } %>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6" id="total-time">Total Duration: 0:00</td>
+        </tr>
+      </tfoot>
+    </table>
+  </section>
+</section>
+
+
+  <!-- Playlists -->
+  <section class="card" aria-label="Playlists">
+    <h2 id="playlist-title">Show Playlists</h2>
+
+    <form id="playlistForm">
+      <fieldset class="grid">
+        <legend>Create Show Playlist</legend>
+        <div class="row">
+          <label for="playlistName">Name</label>
+          <input id="playlistName" type="text" placeholder="Campus Beats – Week 12" required>
+        </div>
+        <div class="row">
+          <label for="playlistDate">Date</label>
+          <input id="playlistDate" type="date" required>
+        </div>
+        <div class="row">
+          <button class="btn" type="submit">Add Playlist</button>
+        </div>
+      </fieldset>
+    </form>
+
+    <ul id="playlistList" class="list" aria-live="polite">
+      <% if (producer.playlists && producer.playlists.length) { %>
+        <% producer.playlists.forEach(pl => { %>
+          <li>
+            <%= pl.name %> - 
+            <% if (pl.date) { %>
+              <%= pl.date.toISOString().substring(0, 10) %>
+            <% } else { %>
+              (no date)
+            <% } %>
+          </li>
+        <% }) %>
+      <% } %>
+    </ul>
+
+
+    
+  </section>
+
+  <!-- Guest / Segment Booking -->
+  <section class="card" aria-label="Guest / Segment Booking">
+    <h2>Book Guest / Segment</h2>
+    <form id="assignForm">
+      <fieldset class="grid">
+        <legend>Add a scheduled on-air segment</legend>
+        <div class="row">
+          <label for="dj">Guest / Segment</label>
+          <input id="dj" type="text" placeholder="Guest name or segment title" required>
+        </div>
+        <div class="row">
+          <label for="day">Day</label>
+          <input id="day" type="text" placeholder="e.g., Friday" required>
+        </div>
+        <div class="row">
+          <label for="startTime">Start</label>
+          <input id="startTime" type="time" required>
+        </div>
+        <div class="row">
+          <label for="endTime">End</label>
+          <input id="endTime" type="time" required>
+        </div>
+        <div class="row">
+          <button class="btn" type="submit">Add</button>
+        </div>
+      </fieldset>
+    </form>
+
+    <ul id="assignList" class="list">
+      <% if (producer.bookings && producer.bookings.length) { %>
+        <% producer.bookings.forEach(b => { %>
+          <li>
+            <%= b.guestOrSegment %> - <%= b.day %> - <%= b.startTime %> to <%= b.endTime %>
+          </li>
+        <% }) %>
+      <% } %>
+    </ul>
+  </section>
+
+  <!-- Run of Show -->
+  <section class="card" aria-label="Run of Show">
+    <div class="flex space-between">
+      <h2>Run of Show</h2>
+      <span class="badge">On-air flow</span>
+    </div>
+    <ol id="ros-list" class="list">
+      <% if (producer.runOfShow && producer.runOfShow.length) { %>
+        <% producer.runOfShow.forEach(item => { %>
+          <li>
+            <strong><%= item.startLabel %></strong> — <%= item.description %> (<%= item.duration %>)
+          </li>
+        <% }) %>
+      <% } else { %>
+        <li><strong>20:00</strong> — Open + Show ID (0:30)</li>
+        <li><strong>20:01</strong> — Music Block A (5 tracks) (18:00)</li>
+        <li><strong>20:19</strong> — Live Break/Commercial (2:00)</li>
+        <li><strong>20:21</strong> — Music Block B (4 tracks) (15:00)</li>
+        <li><strong>20:36</strong> — Interview Segment (10:00)</li>
+      <% } %>
+    </ol>
+    <div class="table-actions">
+      <button id="btn-clear-ros" type="button" class="btn">Clear Run of Show</button>
+    </div>
+  </section>
+</main>
+
+<script>
+   
+const API_BASE = '/producer';
+
+function updateStats(stats) {
+  if (!stats) return;
+
+  const map = {
+    totalShows: 'stat-total-shows',
+    rotationItems: 'stat-rotation-items',
+    playlists: 'stat-playlists',
+    bookings: 'stat-bookings'
+  };
+
+  Object.entries(map).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (el && typeof stats[key] !== 'undefined') {
+      el.textContent = stats[key];
+    }
+  });
+}
+
+function updateRotationDisplay(rotation) {
+  const tbody = document.getElementById("rotation-body");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  rotation.forEach((item, index) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>—</td>
+      <td>${item.track && item.track.mmss ? item.track.mmss : '—'}</td>
+      <td>Music</td>
+      <td>
+        ${item.track ? item.track.title : '(Track not loaded)'}
+        ${item.track && item.track.artist ? ' – ' + item.track.artist : ''}
+      </td>
+      <td>
+        Bin ${item.bin}
+        ${item.notes ? ' — ' + item.notes : ''}
+        ${item.explicit ? ' (Explicit)' : ''}
+      </td>
+      <td>
+        <button class="btn secondary remove-rotation" data-index="${index}">
+          Remove
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  attachRemoveHandlers();
+}
+
+function attachRemoveHandlers() {
+  document.querySelectorAll('.remove-rotation').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const index = Number(btn.dataset.index);
+
+      try {
+        const res = await fetch(`${API_BASE}/remove-rotation`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ index })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          alert(data.error || "Failed to remove rotation item");
+          return;
+        }
+
+        updateRotationDisplay(data.rotation);
+        updateStats(data.stats);
+      } catch (err) {
+        console.error("Error removing rotation item:", err);
+        alert("Server error removing rotation item");
+      }
+    });
+  });
+}
+
+
+async function handleRotationSubmit(e) {
+  e.preventDefault();
+
+  const title = document.getElementById("f-title").value;
+  const artist = document.getElementById("f-artist").value;
+  const mmss = document.getElementById("f-duration").value;
+  const bin = document.getElementById("f-bin").value;
+  const notes = document.getElementById("f-notes").value;
+  const explicit = document.getElementById("f-explicit").checked;
+
+  if (!title || !mmss || !bin) {
+    alert("Title, duration, and bin are required");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/add-rotation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, artist, mmss, bin, notes, explicit })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      alert(data.error || "Failed to add rotation item");
+      return;
+    }
+
+    updateRotationDisplay(data.rotation);
+    updateStats(data.stats);
+
+    document.getElementById("track-form").reset();
+  } catch (err) {
+    console.error("Error adding rotation item:", err);
+    alert("Server error adding rotation item");
+  }
+}
+
+const trackForm = document.getElementById("track-form");
+if (trackForm) {
+  trackForm.addEventListener("submit", handleRotationSubmit);
+}
+
+  document.getElementById("playlistForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const name = document.getElementById("playlistName").value;
+    const date = document.getElementById("playlistDate").value;
+    if (!name || !date) {
+      alert("Fill out both fields!");
+      return;
+    }
+    const li = document.createElement("li");
+    li.textContent = name + " - " + date;
+    document.getElementById("playlistList").appendChild(li);
+    alert("Playlist added!");
+    e.target.reset();
+  });
+
+  document.getElementById("assignForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const dj = document.getElementById("dj").value;
+    const day = document.getElementById("day").value;
+    const start = document.getElementById("startTime").value;
+    const end = document.getElementById("endTime").value;
+    if (!dj || !day || !start || !end) {
+      alert("Please fill out all fields!");
+      return;
+    }
+    if (end <= start) {
+      alert("End must be after start time!");
+      return;
+    }
+    const li = document.createElement("li");
+    li.textContent = dj + " - " + day + " - " + start + " to " + end;
+    document.getElementById("assignList").appendChild(li);
+    alert("Assignment added!");
+  });
+
+  document.getElementById("playlist-title").addEventListener("click", function() {
+    this.style.color = (this.style.color === "pink") ? "black" : "pink";
+  });
+
+  const allAssignments = document.querySelectorAll("#assignList li");
+  for (let i = 0; i < allAssignments.length; i++) {
+    console.log("Assignment " + (i + 1) + ": " + allAssignments[i].textContent);
+  }
+
+  setTimeout(function() {
+    document.title = "Producer Page";
+  }, 1500);
+</script>
+
+
+
+<%- include('partials/footer') %>

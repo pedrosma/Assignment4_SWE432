@@ -53,11 +53,13 @@ app.set('views', path.join(__dirname, 'views'));
 const indexRoutes = require('./routes/index');
 const djRoutes = require('./routes/dj');
 const managerRoutes = require('./routes/manager');
+const producerRoutes = require('./routes/producer');
 const authRoutes = require('./routes/auth');
 
 app.use('/', indexRoutes);
 app.use('/dj', djRoutes);
 app.use('/manager', managerRoutes);
+app.use('/producer', producerRoutes);
 app.use('/auth', authRoutes);
 
 app.use((req, res) => {

@@ -2,6 +2,7 @@ const Track = require('../models/Track');
 const Show = require('../models/Show');
 const Genre = require('../models/Genre');
 const ManagerProfile = require('../models/ManagerProfile');
+const ProducerProfile = require('../models/Producer');
 
 async function seedTracks() {
   const count = await Track.countDocuments();
@@ -15,7 +16,7 @@ async function seedTracks() {
   ];
 
   await Track.insertMany(samples);
-  console.log(`✓ Seeded ${samples.length} tracks`);
+  console.log(`Seeded ${samples.length} tracks`);
 }
 
 async function seedShows() {
@@ -69,14 +70,14 @@ async function seedGenres() {
   ];
 
   await Genre.insertMany(genres);
-  console.log(`✓ Seeded ${genres.length} genres`);
+  console.log(`Seeded ${genres.length} genres`);
 }
 
 async function seedManagerProfile() {
   // Only seed if the default manager profile doesn't exist yet
   const existingDefault = await ManagerProfile.findOne({ sessionId: 'default-manager-session' });
   if (existingDefault) {
-    console.log('✓ Default manager profile already exists');
+    console.log('Default manager profile already exists');
     return;
   }
 
@@ -144,15 +145,90 @@ async function seedManagerProfile() {
   });
 
   await defaultProfile.save();
-  console.log('✓ Seeded default manager profile with 3 scheduled DJs');
+  console.log('Seeded default manager profile with 3 scheduled DJs');
 }
+
+ async function seedProducerProfile() {
+
+  
+  const existingDefault = await ProducerProfile.findOne({ name: 'McKenzie' });
+  if (existingDefault) {
+    console.log('Default producer profile already exists');
+    return;
+  }
+
+  const [genreVariety, shows, tracks] = await Promise.all([
+    Genre.findOne({ name: 'Variety' }),
+    Show.find().sort({ order: 1 }).limit(2),
+    Track.find().limit(4)
+  ]);
+
+  const today = new Date();
+
+  const rotation = [];
+  if (tracks[0]) {
+    rotation.push({
+      track: tracks[0]._id,
+      bin: 'A',
+      notes: 'Bin A rotation',
+      explicit: false
+    });
+  }
+  if (tracks[1]) {
+    rotation.push({
+      track: tracks[1]._id,
+      bin: 'B',
+      notes: 'Bin B rotation',
+      explicit: false
+    });
+  }
+
+  const defaultProducer = new ProducerProfile({
+  sessionId: 'default-producer-session',
+  userId: null,
+  name: 'McKenzie',
+  station: 'GMU Radio',
+  role: 'Producer',
+
+    playlists: [
+      {
+        name: 'Campus Beats - Week 1',
+        date: today,
+        show: shows[0] ? shows[0]._id : null,
+        tracks: tracks.map(t => t._id)
+      }
+    ],
+
+    bookings: [
+      {
+        guestOrSegment: 'Interview: Campus News',
+        day: 'Friday',
+        startTime: '20:36',
+        endTime: '20:46'
+      }
+    ],
+
+    runOfShow: [
+      { startLabel: '20:00', description: 'Open + Show ID', duration: '0:30' },
+      { startLabel: '20:01', description: 'Music Block A (5 tracks)', duration: '18:00' },
+      { startLabel: '20:19', description: 'Live Break / Commercial', duration: '2:00' },
+      { startLabel: '20:21', description: 'Music Block B (4 tracks)', duration: '15:00' },
+      { startLabel: '20:36', description: 'Interview Segment', duration: '10:00' }
+    ]
+  });
+
+  await defaultProducer.save();
+  console.log('Seeded default producer profile');
+}
+
 
 async function seedDatabase() {
   await Promise.all([
     seedTracks(),
     seedShows(),
     seedGenres(),
-    seedManagerProfile()
+    seedManagerProfile(),
+    seedProducerProfile()
   ]);
 }
 
