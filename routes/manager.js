@@ -26,6 +26,12 @@ async function getManagerProfile(req, res, next) {
 
 router.use(getManagerProfile);
 
+router.post('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.json({ success: true });
+  });
+});
+
 router.get('/', async (req, res) => {
   try {
     const profile = req.managerProfile;

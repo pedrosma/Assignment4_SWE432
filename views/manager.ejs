@@ -124,13 +124,9 @@
 </section>
 
 <section class="card">
-  <h2>Event Test Area</h2>
-  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-    <button onclick="showSimpleAlert()" class="btn">Click for Alert</button>
-    <button id="hover-btn" class="btn secondary">Hover Test</button>
-    <button id="click-btn" class="btn secondary">Click Test</button>
-  </div>
-  <p id="test-output" class="muted" style="margin-top: 10px;">Test results will appear here...</p>
+  <h2>Session Management</h2>
+  <p class="muted" style="margin-bottom: 15px;">End your current session. All data will be saved to the database.</p>
+  <button onclick="fetch('/manager/logout', {method:'POST'}).then(() => location.href='/')" class="btn">Logout</button>
 </section>
 
 <section class="card">
@@ -350,15 +346,10 @@
     });
   }
 
-  function showSimpleAlert() {
-    window.alert("This is a simple alert message!");
-  }
-
   window.changeTheme = changeTheme;
   window.clearForm = clearForm;
   window.deleteRow = deleteRow;
   window.filterSongs = filterSongs;
-  window.showSimpleAlert = showSimpleAlert;
 
   //window object
   document.addEventListener("DOMContentLoaded", function() {
@@ -374,31 +365,6 @@
     let form = document.getElementById("signUpForm");
     if (form) {
       form.addEventListener("submit", handleSubmit);
-    }
-
-    //hover test
-    let hoverBtn = document.getElementById("hover-btn");
-    if (hoverBtn) {
-      hoverBtn.addEventListener("mouseenter", function() {
-        this.style.backgroundColor = "var(--primary)";
-        this.textContent = "You're hovering!";
-      });
-
-      //hover leave test
-      hoverBtn.addEventListener("mouseleave", function() {
-        this.style.backgroundColor = "";
-        this.textContent = "Hover Test";
-      });
-    }
-
-    //click event test
-    let clickBtn = document.getElementById("click-btn");
-    if (clickBtn) {
-      clickBtn.addEventListener("click", function() {
-        let output = document.getElementById("test-output");
-        output.textContent = "Button was clicked at " + new Date().toLocaleTimeString();
-        output.style.color = "var(--primary)";
-      });
     }
 
     document.getElementById('schedule-body').addEventListener('click', (e) => {
